@@ -1,0 +1,9 @@
+#!/bin/sh
+
+echo "Copying to /usr/bin..."
+for i in src/*
+do
+    cp "$i" /usr/bin
+done
+echo "Done"
+

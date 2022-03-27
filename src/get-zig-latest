@@ -1,0 +1,85 @@
+#!/bin/sh
+
+# Requires:
+#  jq - JSON parser
+#  curl + wget - Get crap from the internet
+#  superuser permissions
+
+# Future capabilities:
+#  Check installed version, skip update if latest = installed
+
+# Don't run unless root
+if [ $EUID -ne 0 ]
+then
+    echo "I can haz root?"
+    exit 1
+fi
+
+checkInstalled() {
+    which $1 > /dev/null
+    if [ $? -ne 0 ]
+    then
+        echo "$1 is not installed. Fix that."
+        exit 1
+    fi
+}
+
+for i in jq wget curl
+do
+    checkInstalled $i
+done
+
+site="https://ziglang.org/download/index.json"
+
+json=$(curl --silent $site)
+
+master=$(echo $json | jq ".master")
+
+case "$(uname -m)" in
+    x86_64)
+	    architecture="x86_64" ;;
+    aarch64)
+	    architecture="aarch64" ;;
+    *)
+        echo "Unknown architecture $(uname -m)"
+        exit 1
+	;;
+esac
+
+# must be in brackets because of the "-"
+linux_version=$(echo $master | jq ".[\"$architecture-linux\"]")
+
+# jq -r: don't format the output as JSON (leave double quotes surrounding URL)
+tarball=$(echo $linux_version | jq -r ".tarball")
+
+wget $tarball -O /tmp/zig_latest.tar.xz
+
+if [ $? -ne 0 ]
+then
+    echo "failed to fetch archive at \"$tarball\""
+    exit 1
+fi
+
+tar -xf /tmp/zig_latest.tar.xz -C /tmp
+
+directory_name="zig-linux-$architecture-"$(echo $master | jq -r ".version")
+
+# Library
+
+if ! [ -d /usr/lib/zig ]
+then
+    mkdir /usr/lib/zig
+fi
+
+# make sure it's empty
+rm -rf /usr/lib/zig/*
+
+cp -r /tmp/$directory_name/lib /usr/lib/zig/tmp
+mv /usr/lib/zig/tmp/* /usr/lib/zig
+rmdir /usr/lib/zig/tmp
+
+# Executable
+cp /tmp/$directory_name/zig /usr/bin/zig
+
+echo "that oughta do it"
+

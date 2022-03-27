@@ -1,0 +1,26 @@
+#!/bin/sh
+
+
+# Attempt to connect to a SSH server until successful, or process is whack'd
+# Expects one argument: destination
+# Useful when waiting for a server to start or internet connection to get its life together
+
+if [ $# -ne 1 ]
+then
+    echo "$(basename $0): expected one argument (SSH destination)" > /dev/stderr
+    exit 1
+fi
+
+destination=$1
+
+while true
+do
+    ssh $destination
+    if [ $? -ne 255 ]
+    then
+        break
+    fi
+    sleep 1
+done
+
+
